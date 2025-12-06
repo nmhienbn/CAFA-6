@@ -1,0 +1,13 @@
+- train_*_idx.npy      : [N_train]
+- test_*_idx.npy       : [N_test]
+
+- train_*_onehot.npy   : [N_train, num_*]
+- test_*_onehot.npy    : [N_test, num_*]
+
+Trong đó, * = ["genus", "family", "order"]
+
+- train_taxonomy_highlevel.tsv || test_taxonomy_highlevel.tsv:
+    protein, taxon, order, family, genus, order_idx, family_idx, genus_idx
+
+- taxonomy_highlevel_vocab.json:
+    mapping value->index for genus / family / order

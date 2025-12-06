@@ -1,0 +1,25 @@
+# 1) tải NCBI taxdump (chỉ làm 1 lần)
+mkdir -p data/raw/external/ncbi_taxdump
+cd data/raw/external/ncbi_taxdump
+
+wget https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz
+tar xf taxdump.tar.gz  # có nodes.dmp, names.dmp, ...
+
+# 2) lấy list taxid từ CAFA6
+cd data/raw/cafa6
+
+# train: cột 2 là taxonomyID
+cut -f2 Train/train_taxonomy.tsv > cafa_taxids_train.txt
+
+# test: lấy TAXON_ID từ header fasta (cột 2 sau '>')
+grep "^>" Test/testsuperset.fasta | awk '{print $2}' > cafa_taxids_test.txt
+
+cat cafa_taxids_train.txt cafa_taxids_test.txt > cafa_taxids.txt
+sort -u cafa_taxids.txt > cafa_taxids.unique.txt
+
+# 3) dùng taxonkit để lấy lineage k,p,c,o,f,g,s
+TAXDUMP_DIR="data/raw/external/ncbi_taxdump"
+
+taxonkit lineage --data-dir "$TAXDUMP_DIR" data/raw/cafa6/cafa_taxids.unique.txt \
+  | taxonkit reformat --data-dir "$TAXDUMP_DIR" -f '{k}\t{p}\t{c}\t{o}\t{f}\t{g}\t{s}' \
+  > data/raw/cafa6/taxon_lineage_raw.tsv
