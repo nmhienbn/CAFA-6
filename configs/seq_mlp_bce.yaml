@@ -1,0 +1,25 @@
+name: "seq_mlp_bce_BP"
+
+include_data: "configs/data.yaml"
+
+features: # will be concat
+  train:
+    - "features/ankh3/train.npy"
+  test:
+    - "features/ankh3/test.npy"
+
+model:
+  type: "seq_mlp_bce"
+  hidden_dims: [2048, 2048]
+  dropout: 0.3
+
+training:
+  batch_size: 256
+  max_epochs: 20
+  lr: 1.0e-3
+  weight_decay: 1.0e-2
+  devices: [0,1]          # GPU list
+  num_workers: 4
+  precision: "fp16"       # "fp32" hoặc "fp16"
+  label_smoothing: 0.0
+  early_stopping_patience: 5

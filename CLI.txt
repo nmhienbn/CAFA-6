@@ -1,0 +1,17 @@
+python src/data/build_dataset.py \
+  --raw_cafa data/raw/cafa6 \
+  --processed data/processed \
+  --ontology BP \
+  --min_term_freq 5
+
+rclone copy -P . gdrive:cafa/ --update
+
+powershell -ExecutionPolicy Bypass -File .\setup_cafa6.ps1
+
+
+# Train 5-fold seq_mlp_bce
+for fold in 0 1 2 3 4; do
+  CUDA_VISIBLE_DEVICES=4 python src/runners/train.py \
+    --config configs/seq_mlp_bce.yaml --fold $fold --output_dir outputs &
+done
+wait

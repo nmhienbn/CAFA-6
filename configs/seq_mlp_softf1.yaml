@@ -1,0 +1,24 @@
+name: "seq_mlp_softf1_BP"
+include_data: "configs/data.yaml"
+
+features:
+  train:
+    - "features/ankh3/train.npy"
+  test:
+    - "features/ankh3/test.npy"
+
+model:
+  type: "seq_mlp_softf1"
+  hidden_dims: [2048, 2048]
+  dropout: 0.3
+
+training:
+  batch_size: 256
+  max_epochs: 25
+  lr: 5.0e-4
+  weight_decay: 1.0e-2
+  devices: [2,3]
+  num_workers: 4
+  precision: "fp16"
+  label_smoothing: 0.0
+  early_stopping_patience: 5

@@ -1,0 +1,13 @@
+data:
+  root: "data"
+  raw_cafa: "data/raw/cafa6"
+  processed: "data/processed"
+  ontology: "ALL"        # "BP" | "MF" | "CC" | "ALL"
+  go_obo: "data/raw/cafa6/go.obo"
+
+label:
+  min_term_freq: 10     # filter term low frequency
+
+splits:
+  n_folds: 5
+  random_state: 42

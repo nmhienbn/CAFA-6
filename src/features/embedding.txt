@@ -1,0 +1,172 @@
+###################### GPU 0 ######################
+# ========== ESM2 15B TEST (bottleneck chính) ==========
+CUDA_VISIBLE_DEVICES=0 python extract_single_model.py \
+  --model_name facebook/esm2_t48_15B_UR50D \
+  --short_name esm2_15B \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 2 \
+  --use_fp16 \
+  --max_len 1022 &
+
+
+###################### GPU 1 ######################
+# ========== ESM2 15B TRAIN ==========
+CUDA_VISIBLE_DEVICES=1 python extract_single_model.py \
+  --model_name facebook/esm2_t48_15B_UR50D \
+  --short_name esm2_15B \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 2 \
+  --use_fp16 \
+  --max_len 1022 &
+
+
+###################### GPU 2 ######################
+# ========== ESM2 3B TEST ==========
+CUDA_VISIBLE_DEVICES=2 python extract_single_model.py \
+  --model_name facebook/esm2_t36_3B_UR50D \
+  --short_name esm2_3B \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 64 \
+  --use_fp16 \
+  --max_len 1022 &
+
+
+###################### GPU 3 ######################
+# ========== Ankh3 TEST ==========
+CUDA_VISIBLE_DEVICES=3 python extract_single_model.py \
+  --model_name ElnaggarLab/ankh3-large \
+  --short_name ankh3_large \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_ankh &
+
+
+###################### GPU 4 ######################
+# ========== ProtT5 TEST ==========
+CUDA_VISIBLE_DEVICES=4 python extract_single_model.py \
+  --model_name Rostlab/prot_t5_xl_uniref50 \
+  --short_name protT5_xl \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_prott5 &
+
+
+###################### GPU 5 ######################
+# ========== ESM2 3B TRAIN -> ESM1b TRAIN -> ESM2 650M TEST ==========
+CUDA_VISIBLE_DEVICES=5 bash -c '
+python extract_single_model.py \
+  --model_name facebook/esm2_t36_3B_UR50D \
+  --short_name esm2_3B \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 64 \
+  --use_fp16 \
+  --max_len 1022 ;
+
+python extract_single_model.py \
+  --model_name facebook/esm1b_t33_650M_UR50S \
+  --short_name esm1b_650M \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --max_len 1022 ;
+
+python extract_single_model.py \
+  --model_name facebook/esm2_t33_650M_UR50D \
+  --short_name esm2_650M \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --max_len 1022
+' &
+
+
+###################### GPU 6 ######################
+# ========== Ankh TRAIN -> ProtBERT TEST -> ProtBERT TRAIN ==========
+CUDA_VISIBLE_DEVICES=6 bash -c '
+python extract_single_model.py \
+  --model_name ElnaggarLab/ankh3-large \
+  --short_name ankh3_large \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_ankh ;
+
+python extract_single_model.py \
+  --model_name Rostlab/prot_bert_bfd \
+  --short_name protBERT \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_protbert ;
+
+python extract_single_model.py \
+  --model_name Rostlab/prot_bert_bfd \
+  --short_name protBERT \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_protbert
+' &
+
+
+###################### GPU 7 ######################
+# ========== ProtT5 TRAIN -> ESM1b TEST -> ESM2 650M TRAIN ==========
+CUDA_VISIBLE_DEVICES=7 bash -c '
+python extract_single_model.py \
+  --model_name Rostlab/prot_t5_xl_uniref50 \
+  --short_name protT5_xl \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_prott5 ;
+
+python extract_single_model.py \
+  --model_name facebook/esm1b_t33_650M_UR50S \
+  --short_name esm1b_650M \
+  --fasta_path content/cafa6_data/Test/testsuperset.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --max_len 1022 ;
+
+python extract_single_model.py \
+  --model_name facebook/esm2_t33_650M_UR50D \
+  --short_name esm2_650M \
+  --fasta_path content/cafa6_data/Train/train_sequences.fasta \
+  --save_dir content/CAFA6_Embeddings \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --max_len 1022
+' &
+
+
+wait
+echo "DONE ALL EMBEDDINGS"
