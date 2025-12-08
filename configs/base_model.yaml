@@ -1,0 +1,47 @@
+EMBEDDINGS:
+  ankh:
+    train: "features/aligned/Final_Merged/ankh_train_FINAL_embeddings.npy"
+    test:  "features/aligned/Final_Merged/ankh_test_FINAL_embeddings.npy"
+
+  esm:
+    train: "features/aligned/ESM2_Aligned_Ankh/esm2_train_FINAL_embeddings.npy"
+    test:  "features/aligned/ESM2_Aligned_Ankh/esm2_test_FINAL_embeddings.npy"
+
+  prot_t5:
+    train: "features/aligned/Prot_T5_Aligned/protT5_xl_train_FINAL_embeddings.npy"
+    test:  "features/aligned/Prot_T5_Aligned/protT5_xl_test_FINAL_embeddings.npy"
+
+  # protBERT:
+  #   train: "features/aligned/protBERT_Aligned/protBERT_train_FINAL_embeddings.npy"
+  #   test:  "features/aligned/protBERT_Aligned/protBERT_test_FINAL_embeddings.npy"
+
+TRAIN_ID_PATH: "features/aligned/ankh_train_FINAL_ids.npy"
+TEST_ID_PATH:  "features/aligned/ankh_test_FINAL_ids.npy"
+
+SAVE_DIR: "output/base_model"
+TRAIN_TERMS: "data/raw/cafa6/Train/train_terms.tsv"
+IA_FILE: "data/raw/cafa6/IA.tsv"
+TEST_FASTA: "data/raw/cafa6/Test/testsuperset.fasta"
+
+# Model Params
+TOP_K_LABELS: 10000
+
+# chạy lần lượt MF / BP / CC
+ONTOLOGY: 'MF'   
+TOP_TERMS_NPY: 'features/top_terms_by_aspect/top_terms_MF.npy'
+
+ENCODER_LAYERS: [2048, 1024, 512]
+DROPOUT_RATE: 0.4
+EPOCHS: 50
+BATCH_SIZE: 128
+LEARNING_RATE: 0.0002
+LABEL_SMOOTHING: 0.1
+
+# Inference Params
+MIN_CONFIDENCE: 0.01
+MAX_PREDS_PER_PROTEIN: 20
+
+SEED: 42
+
+# "auto" = tự chọn cuda/cpu trong code
+DEVICE: "auto"

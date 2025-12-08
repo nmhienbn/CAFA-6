@@ -1,24 +1,3 @@
-"""
-Tạo species feature cho CAFA6 và lưu ra .npy
-
-Input:
-- Train/train_taxonomy.tsv
-    + Format: EntryID<TAB>taxonomyID
-
-- Test/testsuperset.fasta
-    + Header: >UNIPROT_ID TAXON_ID
-      Ví dụ: >A0A0C5B5G6 9606
-
-Output (ở OUT_DIR):
-- train_species_onehot.npy   : [N_train, num_taxa]
-- test_species_onehot.npy    : [N_test,  num_taxa]
-- train_species_idx.npy      : [N_train]  (taxon_idx)
-- test_species_idx.npy       : [N_test]
-- train_species_proteins.tsv : protein <TAB> taxon <TAB> taxon_idx
-- test_species_proteins.tsv  : ...
-- species_vocab.json         : mapping taxon_id <-> index
-"""
-
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,7 +10,7 @@ import pandas as pd
 def load_train_taxonomy(taxonomy_path: str | Path) -> pd.DataFrame:
     csv_path = Path(taxonomy_path)
 
-    df = pd.read_csv(csv_path, sep="\t")
+    df = pd.read_csv(csv_path, sep="\t", header=None)
 
     col0, col1 = df.columns[:2]
     df = df.rename(columns={col0: "protein", col1: "taxon"})
@@ -186,6 +165,7 @@ def save_species_features(
 
     train_idx = train_tax["taxon_idx"].to_numpy(dtype=np.int64)
     test_idx = test_tax["taxon_idx"].to_numpy(dtype=np.int64)
+    all_tax = pd.concat([train_tax, test_tax], axis=0)
 
     train_onehot = one_hot_from_index(train_idx, indexer.num_taxa)
     test_onehot = one_hot_from_index(test_idx, indexer.num_taxa)
@@ -200,6 +180,9 @@ def save_species_features(
     )
     test_tax[["protein", "taxon", "taxon_idx"]].to_csv(
         out_dir / "test_species_proteins.tsv", sep="\t", index=False
+    )
+    all_tax[["protein", "taxon", "taxon_idx"]].to_csv(
+        out_dir / "protein_taxon.tsv", sep="\t", index=False
     )
 
     vocab = {
@@ -226,7 +209,7 @@ def main():
     indexer = SpeciesIndexer.build(
         train_tax=train_tax,
         test_tax=test_tax,
-        min_count=1,
+        min_count=0,
         use_test_for_vocab=True,
     )
 

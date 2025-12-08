@@ -4,5 +4,7 @@ features/taxonomy_highlevel/*.npy
 features/taxonomy_highlevel/*.tsv
 features/taxonomy/*.npy
 features/taxonomy/*.tsv
+features/aligned
 .ipynb_checkpoints/
 data/
+output/

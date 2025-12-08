@@ -38,7 +38,7 @@ def normalize_taxonkit_output(
 
 def load_train_taxonomy(taxonomy_path: str | Path) -> pd.DataFrame:
     csv_path = Path(taxonomy_path)
-    df = pd.read_csv(csv_path, sep="\t")
+    df = pd.read_csv(csv_path, sep="\t", header=None)
 
     col0, col1 = df.columns[:2]
     df = df.rename(columns={col0: "protein", col1: "taxon"})
