@@ -22,6 +22,7 @@ SAVE_DIR: "output/base_model"
 TRAIN_TERMS: "data/raw/cafa6/Train/train_terms.tsv"
 IA_FILE: "data/raw/cafa6/IA.tsv"
 TEST_FASTA: "data/raw/cafa6/Test/testsuperset.fasta"
+OBO_PATH: "data/raw/cafa6/Train/go-basic.obo"
 
 # Model Params
 TOP_K_LABELS: 10000
@@ -39,7 +40,7 @@ LABEL_SMOOTHING: 0.1
 
 # Inference Params
 MIN_CONFIDENCE: 0.01
-MAX_PREDS_PER_PROTEIN: 20
+MAX_PREDS_PER_PROTEIN: 100
 
 SEED: 42
 

@@ -1,0 +1,1 @@
+{"nodes": 543095, "features": ["protein_id", "degree", "betweenness", "pagerank"], "engine": "cugraph (GPU)"}

@@ -5,20 +5,22 @@ cafa6/
   data/
     Train/train_sequences.fasta
     Test/testsuperset.fasta
-  afdb/
-    db/         # AFDB FoldSeek database
-    prostt5/    # ProstT5 weights
-    tmp/        # tmp folder cho FoldSeek
-    out/        # m8 output
+    afdb/
+      db/
+      prostt5/
+      tmp/
+      out/
+  features/
+    foldseek/
   struct_feats/
-    # sẽ chứa .npy features
   scripts/
+
 ```
 
 Tạo nhanh:
 
 ```
-mkdir -p data/{afdb/{db,prostt5,tmp,out},struct_feats,scripts}
+mkdir -p data/{afdb/{db,prostt5,tmp,out},}
 ```
 
 # 2. Cài FoldSeek (GPU build)
@@ -43,67 +45,65 @@ FoldSeek hỗ trợ:
 
 ### Tải AFDB50
 ```
-foldseek databases Alphafold/Swiss-Prot afdb/db/afdb50 afdb/tmp --threads 32
+foldseek databases Alphafold/Swiss-Prot \
+  data/afdb/db/afdb_sp \
+  data/afdb/tmp \
+  --threads 32 \
+  --remove-tmp-files 1
+
+foldseek databases Alphafold/Proteome \
+  data/afdb/db/afdb_proteome \
+  data/afdb/tmp \
+  --threads 32 \
+  --remove-tmp-files 1
+
 ```
 
 ### Tải ProstT5 weights (để search từ FASTA)
 
 FoldSeek hỗ trợ structure-based sequence search bằng ProstT5, nhanh hơn ColabFold 400–4000x.
 ```
-mkdir -p data/structures/afdb/prostt5
-mkdir -p data/structures/afdb/tmp/prostt5_dl
+mkdir -p data/afdb/prostt5
+mkdir -p data/afdb/tmp/prostt5_dl
 
 foldseek databases ProstT5 \
-  data/structures/afdb/prostt5/weights \
-  data/structures/afdb/tmp/prostt5_dl
+  data/afdb/prostt5/weights \
+  data/afdb/tmp/prostt5_dl
 
-ls -lh data/structures/afdb/prostt5/weights
+ls -lh data/afdb/prostt5/weights
 ```
 
 # 3. Chạy FoldSeek easy-search cho CAFA6 (FASTA → AFDB)
 ## Train vs AFDB
 
 ```bash
-cd cafa6
-
-foldseek createdb \
-  data/raw/cafa6/Train/train_sequences.fasta \
-  data/structures/afdb/db/train_prostt5 \
-  --prostt5-model data/structures/afdb/prostt5/weights \
-  --threads 32
-  # chỉ thêm --gpu 1 nếu bạn CHẮC đang chạy trên node có GPU hỗ trợ ProstT5
-
-ls -lh data/structures/afdb/db/train_prostt5*
-
+CUDA_VISIBLE_DEVICES=2 \  # nếu build GPU; nếu build CPU-only thì bỏ dòng này
 foldseek easy-search \
-  data/structures/afdb/db/train_prostt5 \
-  data/structures/afdb/db/afdb50 \
-  data/structures/afdb/out/train_vs_afdb50.m8 \
-  data/structures/afdb/tmp/train_vs_afdb50 \
+  data/raw/cafa6/Train/train_sequences.fasta \
+  data/afdb/db/afdb_sp \
+  data/afdb/out/train_vs_afdb_sp.m8 \
+  data/afdb/tmp/train_vs_afdb_sp \
+  --prostt5-model data/afdb/prostt5/weights \
   -e 1e-3 \
   --max-seqs 200 \
   --threads 32 \
-  --gpu 1
+  --gpu 1   # chỉ giữ nếu bạn build được CUDA; nếu build CPU-only thì bỏ
+
 
 ```
 
 ## Test vs AFDB
 ```bash
-foldseek createdb \
-  data/raw/cafa6/Test/testsuperset.fasta \
-  data/structures/afdb/db/test_prostt5 \
-  --prostt5-model data/structures/afdb/prostt5/weights \
-  --threads 32
-  
+CUDA_VISIBLE_DEVICES=3 \  # nếu build GPU; nếu build CPU-only thì bỏ dòng này
 foldseek easy-search \
-  data/structures/afdb/db/test_prostt5 \
-  data/structures/afdb/db/afdb50 \
-  data/structures/afdb/out/testsuperset_vs_afdb50.m8 \
-  data/structures/afdb/tmp/testsuperset_vs_afdb50 \
+  data/raw/cafa6/Test/testsuperset.fasta \
+  data/afdb/db/afdb_sp \
+  data/afdb/out/test_vs_afdb_sp.m8 \
+  data/afdb/tmp/test_vs_afdb_sp \
+  --prostt5-model data/afdb/prostt5/weights \
   -e 1e-3 \
   --max-seqs 200 \
-  --threads 32 \
-  --gpu 2
+  --threads 32
 ```
 
 # Run scripts
@@ -128,6 +128,43 @@ python src/features/extract_foldseek_features.py \
 
 # Install FoldSeek
 ```text
+cd /data/hien
+git clone https://github.com/Daniel-Liu-c0deb0t/block-aligner.git
+cd block-aligner/c
+cargo build --release --features simd_avx2
+
+export CONDA_PREFIX=/data/hien/.conda/envs/cafa
+cp target/release/libblock_aligner_c.a $CONDA_PREFIX/lib/
+cd $CONDA_PREFIX/lib
+ln -sf libblock_aligner_c.a libblock-aligner-c.a
+
+export LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH
+cd /data/hien/foldseek
+rm -rf build
+mkdir build && cd build
+
+
+
+export CUDA_ROOT=/data/hien/.conda/envs/cafa
+export CUDA_PATH=$CUDA_ROOT
+export CUDA_TOOLKIT_ROOT_DIR=$CUDA_ROOT
+
+export LD_LIBRARY_PATH=$CUDA_ROOT/lib:$CUDA_ROOT/lib64:$LD_LIBRARY_PATH
+
+
+cmake  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DCMAKE_POLICY_DEFAULT_CMP0079=NEW \
+  -DCMAKE_POLICY_DEFAULT_CMP0074=NEW \
+  -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_ROOT \
+  -DCMAKE_LIBRARY_PATH=$CONDA_PREFIX/lib \
+  -DCMAKE_CUDA_COMPILER=$CUDA_ROOT/bin/nvcc \
+  -DRust_CUDA_ROOT=$CUDA_ROOT \
+  -DCMAKE_BUILD_TYPE=Release -DENABLE_CUDA=1 \
+  -DCUDAToolkit_ROOT=/usr/local/cuda-11.7 ..
+
+
+
+
 # 0. Tạo env build riêng
 conda create -n foldseek-gpu-build -c conda-forge cmake make gcc gxx -y
 conda activate foldseek-gpu-build

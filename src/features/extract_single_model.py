@@ -79,7 +79,8 @@ def main():
     is_saprot = args.is_saprot or ("saprot" in model_name_lower or "saprot" in args.short_name.lower())
     is_prott5 = args.is_prott5 or ("prot_t5" in model_name_lower)
     is_protbert = args.is_protbert or ("prot_bert" in model_name_lower)
-    is_ankh     = args.is_ankh     or ("ankh3"    in model_name_lower or "ankh-" in model_name_lower)
+    is_ankh3 = "ankh3" in model_name_lower
+    is_ankh  = args.is_ankh or is_ankh3
 
     # -------------------------------------------------
     # 3) Load tokenizer + model
@@ -117,9 +118,16 @@ def main():
 
     elif is_ankh:
         print("Loading Ankh (T5-style encoder)...")
-        tokenizer = T5Tokenizer.from_pretrained(args.model_name)
+        if "ankh3" in model_name_lower:
+            # Ankh3: have spiece.model → use T5Tokenizer
+            tokenizer = T5Tokenizer.from_pretrained(args.model_name)
+            preprocess = lambda s: "[S2S]" + s
+        else:
+            # Ankh v1 / v2: just tokenizer.json → use fast tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
+            preprocess = lambda s: " ".join(list(s))
+            
         model = T5EncoderModel.from_pretrained(args.model_name)
-        preprocess = lambda s: "[S2S]" + s
 
         if args.use_fp16 and device.type == "cuda":
             model = model.half()

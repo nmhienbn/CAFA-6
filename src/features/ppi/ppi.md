@@ -4,15 +4,6 @@
 2. Từ `ppi_edges.tsv` → sinh **PPI features** (`ppi_features.npz`).
 3. Từ PPI + GO train + species info → **Net-KNN + top 15 species** (`netknn_top15.tsv`).
 
-Tôi cho bạn **3 script chính + 1 script phụ build species_annot**:
-
-* `prepare_ppi_from_string.py`
-* `build_ppi_features.py`
-* `build_species_annot_stats.py` (để ra `species_annot_stats.tsv`)
-* `net_knn_top15.py`
-
----
-
 # 0. File sử dụng
 
 ```text
@@ -53,24 +44,36 @@ CAFA-6/
 
 ```
 
-Giả định: **ID trong PPI đã cùng namespace với `protein_id` trong CAFA** (UniProt, hoặc gì đó bạn chọn). Nếu bạn dùng STRING `9606.ENSP...` thì tự remap sang CAFA id trước.
-
 ---
 
-## 1. Download - TODO: Remove 0B files.
+
+## Sinh file phụ trợ
+Tạo ra all_proteins.txt, protein_taxon.tsv, train_go_annotations.tsv từ dữ liệu Kaggle.
+```
+python src/features/ppi/build_cafa_mappings.py \
+  --train_fasta data/raw/cafa6/Train/train_sequences.fasta \
+  --test_fasta data/raw/cafa6/Test/testsupertest.fasta \
+  --train_terms data/raw/cafa6/Train/train_terms.tsv \
+  --train_taxa data/raw/cafa6/Train/train_taxonomy.tsv \
+  --out_dir data/processed/mapping
+```
+
+## 1. Download protein alias
+Bạn cần tải file protein.aliases.v12.0.txt.gz của STRING. Sau đó chạy lệnh grep hoặc zgrep để lọc ra các dòng chứa ID UniProt (thường là source UniProt_AC hoặc BLAST_UniProt_AC).
+
 ```bash
-cd cafa6
-
-mkdir -p data/raw/external/string/v12/protein.links.full.cafa
-
-python src/features/ppi/download_string_ppi_cafa_species.py \
-  --protein_taxon_path features/taxonomy/protein_taxon.tsv \
-  --top_k_taxa 50 \
-  --out_dir data/raw/external/string/v12/protein.links.full.cafa
+wget https://stringdb-downloads.org/download/protein.aliases.v12.0.txt.gz
+zgrep "UniProt_AC" protein.aliases.v12.0.txt.gz | cut -f1,2 > data/processed/mapping/string_to_protein_id.tsv
 ```
 
-## 2. Merge
-```
+
+Hoặc nếu máy không nhiều bộ nhớ:
+```bash
+python src/features/ppi/fetch_string_mapping.py \
+  --input_proteins data/processed/mapping/all_proteins.txt \
+  --out_path data/processed/mapping/string_to_protein_id.tsv
+
+# Merge các file
 python src/features/ppi/prepare_string_ppi_all.py \
   --input_dir data/raw/external/string/v12/protein.links.full.cafa \
   --pattern "*.protein.links.full.v12.0.txt.gz" \
@@ -79,65 +82,99 @@ python src/features/ppi/prepare_string_ppi_all.py \
   --out_path data/processed/ppi/ppi_edges_string_all.tsv
 ```
 
-## 2 Remap STRING id -> protein_id (CAFA)
-```
+## 2. Remap STRING id -> protein_id (CAFA)
+
+
+```bash
 python src/features/ppi/map_ppi_ids.py \
   --ppi_in data/processed/ppi/ppi_edges_string_all.tsv \
+  --mapping_path data/processed/mapping/string_to_protein_id.tsv \
+  --ppi_out data/processed/ppi/ppi_edges_cafa.tsv \
   --ppi_protein1_col protein1 \
   --ppi_protein2_col protein2 \
   --ppi_weight_col weight \
-  --mapping_path data/processed/mapping/string_to_protein_id.tsv \
   --map_src_col string_id \
   --map_tgt_col protein_id \
   --drop_self \
-  --agg_method max \
-  --ppi_out data/processed/ppi/ppi_edges_cafa.tsv
+  --agg_method max
 ```
 
-# 2.2 Build species_annot_stats
+# 3. Build species_annot_stats
+Đếm số lượng GO terms được gán cho mỗi loài, giúp xác định loài nào có dữ liệu huấn luyện tốt nhất.
+```bash
 python src/features/ppi/build_species_annot_stats.py \
   --annotation_path data/processed/mapping/train_go_annotations.tsv \
   --protein_taxon_path data/processed/mapping/protein_taxon.tsv \
+  --out_path data/processed/mapping/species_annot_stats.tsv \
   --ann_protein_col protein_id \
   --ann_go_col go_id \
-  --ann_label_col label \
-  --ann_label_threshold 0.5 \
-  --out_path data/processed/mapping/species_annot_stats.tsv
+  --ann_label_col label
+```
 
-# 2.3 PPI features
+# 4. PPI features
+Tính toán đặc trưng đồ thị, node2vec...
+```bash
+pip install node2vec
 python src/features/ppi/build_ppi_features.py \
   --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
+  --out_path features/ppi/ppi_features.npz \
+  --meta_path features/ppi/ppi_features_meta.json \
   --protein1_col protein1 \
   --protein2_col protein2 \
   --weight_col weight \
-  --target_ids_path data/processed/mapping/all_proteins.txt \
-  --protein_taxon_path data/processed/mapping/protein_taxon.tsv \
-  --species_annot_path data/processed/mapping/species_annot_stats.tsv \
-  --topk_species 15 \
   --compute_closeness \
-  --compute_betweenness --betweenness_k 256 \
-  --compute_node2vec \
-  --node2vec_dim 128 \
-  --out_path features/ppi/ppi_features.npz \
-  --meta_path features/ppi/ppi_features_meta.json
+  --compute_betweenness --betweenness_k 100 \
+  --compute_node2vec --node2vec_dim 64
 
-# 2.4 Net-KNN + top-15 species
+or 
+pip install node2vec
+python src/features/ppi/build_ppi_features_fast.py \
+  --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
+  --out_path features/ppi/ppi_features.npz \
+  --meta_path features/ppi/ppi_features_meta.json \
+  --weight_col weight \
+  --compute_betweenness --betweenness_k 200 \
+  --compute_node2vec --node2vec_dim 64 \
+  --workers 12
+
+or 
+pip install pecanpy
+python src/features/ppi/build_ppi_features_pecanpy.py \
+  --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
+  --out_path features/ppi/ppi_features.npz \
+  --meta_path features/ppi/ppi_features_meta.json \
+  --protein1_col protein1 \
+  --protein2_col protein2 \
+  --weight_col weight \
+  --compute_closeness \
+  --compute_betweenness --betweenness_k 100 \
+  --compute_node2vec --node2vec_dim 64
+
+or
+conda install -c rapidsai -c conda-forge -c nvidia python=3.9 rapids=23.10 cuda-version=11.8 -y
+python src/features/ppi/build_ppi_features_gpu.py \
+  --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
+  --out_path features/ppi/ppi_features.npz \
+  --meta_path features/ppi/ppi_features_meta.json \
+  --weight_col weight \
+  --compute_betweenness --betweenness_k 500 \
+  --compute_node2vec --node2vec_dim 64 \
+  --compute_pagerank
+```
+
+# 5. Net-KNN + top-15 species
+Thuật toán lan truyền nhãn (Label Propagation) đơn giản dựa trên hàng xóm có trọng số (Weighted KNN).
+```bash
 python src/features/ppi/net_knn_top15.py \
   --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
-  --protein1_col protein1 \
-  --protein2_col protein2 \
-  --weight_col weight \
   --annotation_path data/processed/mapping/train_go_annotations.tsv \
-  --ann_protein_col protein_id \
-  --ann_go_col go_id \
-  --ann_label_col label \
-  --ann_label_threshold 0.5 \
-  --target_ids_path data/processed/mapping/all_proteins.txt \
   --protein_taxon_path data/processed/mapping/protein_taxon.tsv \
   --species_annot_path data/processed/mapping/species_annot_stats.tsv \
+  --target_ids_path data/processed/mapping/all_proteins.txt \
+  --out_path features/ppi/netknn_top15.tsv \
+  --meta_path features/ppi/netknn_top15_meta.json \
   --topk_species 15 \
   --k_neighbors 50 \
-  --min_edge_weight 0.0 \
-  --normalize_scores \
-  --out_path outputs/preds/netknn_top15.tsv \
-  --meta_path outputs/preds/netknn_top15_meta.json
+  --min_edge_weight 400 \
+  --normalize_scores
+```

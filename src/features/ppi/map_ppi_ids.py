@@ -1,114 +1,74 @@
-#!/usr/bin/env python
+import pandas as pd
 import argparse
 import os
+import gzip
 
-import pandas as pd
-
+def load_mapping(mapping_path):
+    """
+    Load file mapping: STRING_ID -> CAFA_ID
+    File mapping này bạn phải tự tạo từ STRING Aliases.
+    Format: string_id \t protein_id
+    """
+    print(f"Loading mapping from {mapping_path}")
+    return pd.read_csv(mapping_path, sep="\t")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Remap PPI edge list IDs to CAFA protein_id namespace "
-            "using a mapping table (e.g. STRING/Ensembl/UniProt -> protein_id)."
-        )
-    )
-
-    parser.add_argument("--ppi_in", type=str, required=True)
-    parser.add_argument("--ppi_protein1_col", type=str, default="protein1")
-    parser.add_argument("--ppi_protein2_col", type=str, default="protein2")
-    parser.add_argument("--ppi_weight_col", type=str, default="weight")
-
-    parser.add_argument("--mapping_path", type=str, required=True)
-    parser.add_argument("--map_src_col", type=str, required=True)
-    parser.add_argument("--map_tgt_col", type=str, default="protein_id")
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ppi_in", required=True)
+    parser.add_argument("--mapping_path", required=True) # File string_to_protein_id.tsv
+    parser.add_argument("--ppi_out", required=True)
+    # Các tham số cột (giữ mặc định như yêu cầu của bạn)
+    parser.add_argument("--ppi_protein1_col", default="protein1")
+    parser.add_argument("--ppi_protein2_col", default="protein2")
+    parser.add_argument("--ppi_weight_col", default="weight")
+    parser.add_argument("--map_src_col", default="string_id")
+    parser.add_argument("--map_tgt_col", default="protein_id")
     parser.add_argument("--drop_self", action="store_true")
-    parser.add_argument(
-        "--agg_method",
-        type=str,
-        default="max",
-        choices=["max", "mean", "sum"],
-    )
-
-    parser.add_argument("--ppi_out", type=str, required=True)
-
+    parser.add_argument("--agg_method", default="max")
+    
     args = parser.parse_args()
 
-    print(f"[INFO] Loading PPI from {args.ppi_in}")
-    ppi = pd.read_csv(args.ppi_in, sep=None, engine="python")
+    # 1. Load PPI (STRING raw)
+    print("Loading PPI raw...")
+    df_ppi = pd.read_csv(args.ppi_in, sep="\t")
+    
+    # 2. Load Mapping
+    # Giả sử bạn đã có file này. Nếu chưa, xem hướng dẫn bên dưới code.
+    df_map = pd.read_csv(args.mapping_path, sep="\t")
+    # Tạo dict cho nhanh: string_id -> protein_id
+    # Lưu ý: STRING ID thường có dạng "9606.ENSP000..."
+    mapper = dict(zip(df_map[args.map_src_col], df_map[args.map_tgt_col]))
 
-    for c in [args.ppi_protein1_col, args.ppi_protein2_col]:
-        if c not in ppi.columns:
-            raise ValueError(f"PPI file must contain '{c}', got {ppi.columns.tolist()}")
+    # 3. Map IDs
+    print("Mapping Protein 1...")
+    df_ppi['p1_mapped'] = df_ppi[args.ppi_protein1_col].map(mapper)
+    print("Mapping Protein 2...")
+    df_ppi['p2_mapped'] = df_ppi[args.ppi_protein2_col].map(mapper)
 
-    if args.ppi_weight_col not in ppi.columns:
-        print(f"[WARN] No weight column '{args.ppi_weight_col}', setting weight=1.0")
-        ppi[args.ppi_weight_col] = 1.0
+    # 4. Filter missing
+    initial_len = len(df_ppi)
+    df_ppi = df_ppi.dropna(subset=['p1_mapped', 'p2_mapped'])
+    print(f"Dropped {initial_len - len(df_ppi)} edges due to missing mapping.")
 
-    ppi = ppi[[args.ppi_protein1_col, args.ppi_protein2_col, args.ppi_weight_col]].copy()
-    ppi = ppi.rename(
-        columns={
-            args.ppi_protein1_col: "p1_src",
-            args.ppi_protein2_col: "p2_src",
-            args.ppi_weight_col: "weight",
-        }
-    )
-    print(f"[INFO] Raw edges: {len(ppi)}")
-
-    print(f"[INFO] Loading mapping from {args.mapping_path}")
-    mapping = pd.read_csv(args.mapping_path, sep=None, engine="python")
-    for c in [args.map_src_col, args.map_tgt_col]:
-        if c not in mapping.columns:
-            raise ValueError(
-                f"Mapping file must contain '{c}', got {mapping.columns.tolist()}"
-            )
-
-    mapping = mapping[[args.map_src_col, args.map_tgt_col]].copy()
-    mapping[args.map_src_col] = mapping[args.map_src_col].astype(str)
-    mapping[args.map_tgt_col] = mapping[args.map_tgt_col].astype(str)
-
-    map_dict = dict(zip(mapping[args.map_src_col], mapping[args.map_tgt_col]))
-
-    ppi["p1_src"] = ppi["p1_src"].astype(str)
-    ppi["p2_src"] = ppi["p2_src"].astype(str)
-
-    ppi["protein1"] = ppi["p1_src"].map(map_dict)
-    ppi["protein2"] = ppi["p2_src"].map(map_dict)
-
-    before = len(ppi)
-    ppi = ppi.dropna(subset=["protein1", "protein2"])
-    after_mapped = len(ppi)
-    print(
-        f"[INFO] Edges mapped on both sides: {after_mapped}/{before} "
-        f"({after_mapped / max(before,1):.2%})"
-    )
-
+    # 5. Drop self-loops
     if args.drop_self:
-        before_self = len(ppi)
-        ppi = ppi[ppi["protein1"] != ppi["protein2"]]
-        after_self = len(ppi)
-        print(
-            f"[INFO] Dropped self-loops: {before_self - after_self}, remain {after_self}"
-        )
+        df_ppi = df_ppi[df_ppi['p1_mapped'] != df_ppi['p2_mapped']]
 
-    mask = ppi["protein1"] > ppi["protein2"]
-    ppi.loc[mask, ["protein1", "protein2"]] = ppi.loc[
-        mask, ["protein2", "protein1"]
-    ].values
+    # 6. Chuẩn hóa format đầu ra
+    # Sắp xếp p1, p2 để coi (A,B) như (B,A) -> giảm duplicate undirected
+    # (Tùy chọn, STRING thường đã đối xứng, nhưng remap có thể làm lệch)
+    # Ở đây ta giữ nguyên hướng hoặc sort
+    
+    out_df = df_ppi[['p1_mapped', 'p2_mapped', args.ppi_weight_col]].copy()
+    out_df.columns = ['protein1', 'protein2', 'weight']
 
-    if args.agg_method == "max":
-        agg_df = ppi.groupby(["protein1", "protein2"], as_index=False)["weight"].max()
-    elif args.agg_method == "mean":
-        agg_df = ppi.groupby(["protein1", "protein2"], as_index=False)["weight"].mean()
-    else:
-        agg_df = ppi.groupby(["protein1", "protein2"], as_index=False)["weight"].sum()
-
-    print(f"[INFO] After aggregation: |E|={len(agg_df)}")
-
-    os.makedirs(os.path.dirname(args.ppi_out), exist_ok=True)
-    agg_df.to_csv(args.ppi_out, sep="\t", index=False)
-    print(f"[INFO] Saved remapped PPI to {args.ppi_out}")
-
+    # 7. Aggregate duplicates (nếu nhiều string id map về cùng 1 cafa id)
+    print(f"Aggregating duplicates using {args.agg_method}...")
+    if args.agg_method == 'max':
+        out_df = out_df.groupby(['protein1', 'protein2'], as_index=False)['weight'].max()
+    
+    print(f"Saving {len(out_df)} edges to {args.ppi_out}")
+    out_df.to_csv(args.ppi_out, sep="\t", index=False)
 
 if __name__ == "__main__":
     main()

@@ -170,3 +170,28 @@ python extract_single_model.py \
 
 wait
 echo "DONE ALL EMBEDDINGS"
+
+
+
+
+CUDA_VISIBLE_DEVICES=5 python src/features/extract_single_model.py \
+  --model_name ElnaggarLab/ankh-large \
+  --short_name ankh_large \
+  --fasta_path data/raw/cafa6/Train/train_sequences.fasta \
+  --save_dir features \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_ankh
+
+
+CUDA_VISIBLE_DEVICES=3 python src/features/extract_single_model.py \
+  --model_name ElnaggarLab/ankh-large \
+  --short_name ankh_large \
+  --fasta_path data/raw/cafa6/Test/testsuperset.fasta \
+  --save_dir features \
+  --device cuda:0 \
+  --batch_size 32 \
+  --use_fp16 \
+  --is_ankh
+
