@@ -72,24 +72,29 @@ if __name__ == '__main__':
 
     # goa leak
     goa = cudf.read_csv(
-        os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'),
+        os.path.join(temporal_path, 'ver228/prop_test_leak_no_dup.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     goa['prob'] = 0.99
 
     # gq51 dataset
     qg = cudf.read_csv(
-        os.path.join(temporal_path, 'prop_quickgo51.tsv'),
+        os.path.join(temporal_path, 'ver228/prop_quickgo51.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     qg['prob'] = 0.99
 
     # diff
     diff = cudf.read_csv(
-        os.path.join(temporal_path, 'cafa-terms-diff.tsv'),
+        os.path.join(temporal_path, 'ver228/cafa-terms-diff.tsv'),
         header=None, sep='\t', names=['EntryID', 'term', 'prob']
     )
 
     # collect all together
-    pred = cudf.concat([pred, qg, goa, diff], ignore_index=False)
+    pred = cudf.concat([
+        pred, 
+        # qg, 
+        goa, 
+        # diff
+        ], ignore_index=False)
     pred['ns'] = pred['term'].map(mapper).values
     pred = pred.groupby(['EntryID', 'term']).mean().reset_index()
     pred['rank'] = pred.groupby(['EntryID', 'ns'])['prob'].rank(method='dense', ascending=False) - 1

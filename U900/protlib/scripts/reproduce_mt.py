@@ -37,7 +37,7 @@ if __name__ == '__main__':
     
 
     qg51 = old[old['EntryID'].isin(idxs)]
-    qg51.to_csv(os.path.join(args.path, 'quickgo51.tsv'), sep='\t', index=False)
+    qg51.to_csv(os.path.join(args.new_path, 'quickgo51.tsv'), sep='\t', index=False)
 
     # get cafa-terms-diff
     new = pd.read_csv(os.path.join(args.new_path, 'goa.tsv'), sep='\t', usecols=['EntryID', 'term']) \
@@ -55,4 +55,4 @@ if __name__ == '__main__':
 
     merged = merged[merged['term'].isin(valid_idxs)]
     merged['prob'] = 0.99
-    merged.to_csv(os.path.join(args.path, 'cafa-terms-diff.tsv'), sep='\t', index=False, header=False)
+    merged.to_csv(os.path.join(args.new_path, 'cafa-terms-diff.tsv'), sep='\t', index=False, header=False)

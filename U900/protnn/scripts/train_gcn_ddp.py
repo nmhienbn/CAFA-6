@@ -172,8 +172,8 @@ if __name__ == '__main__':
 
     # Load Test Data (cho Validation)
     test_labels = pd.concat([
-        pd.read_csv(os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'), sep='\t'),
-        pd.read_csv(os.path.join(temporal_path, 'prop_quickgo51.tsv'), sep='\t'),
+        pd.read_csv(os.path.join(temporal_path, 'ver228/prop_test_leak_no_dup.tsv'), sep='\t'),
+        pd.read_csv(os.path.join(temporal_path, 'ver228/prop_quickgo51.tsv'), sep='\t'),
     ]).drop_duplicates().reset_index(drop=True)
     
     if local_rank == 0:
