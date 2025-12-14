@@ -41,7 +41,7 @@ def get_goa_data(path, pref, ids, G):
     src_list = ['no_kaggle']
 
     for src in src_list:
-        fname = os.path.join(path, f'ver228/prop_{pref}_{src}.tsv')
+        fname = os.path.join(path, f'labels/prop_{pref}_{src}.tsv')
         goa_data.append(
             get_labels(
                 fname,

@@ -117,7 +117,7 @@ if __name__ == '__main__':
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
     ia_path = os.path.join(config['base_path'], 'IA.txt')
     helpers_path = os.path.join(config['base_path'], config['helpers_path'])
-    temporal_path = os.path.join(config['base_path'], config['temporal_path'])
+    temporal_path = os.path.join(config['base_path'], config['temporal_path'], "ver228")
 
     work_dir = os.path.join(models_path, 'gcn', args.ontology)
     temp_dir = os.path.join(work_dir, 'temp')
@@ -172,8 +172,8 @@ if __name__ == '__main__':
 
     # Load Test Data (cho Validation)
     test_labels = pd.concat([
-        pd.read_csv(os.path.join(temporal_path, 'ver228/prop_test_leak_no_dup.tsv'), sep='\t'),
-        pd.read_csv(os.path.join(temporal_path, 'ver228/prop_quickgo51.tsv'), sep='\t'),
+        pd.read_csv(os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'), sep='\t'),
+        # pd.read_csv(os.path.join(temporal_path, 'prop_quickgo51.tsv'), sep='\t'),
     ]).drop_duplicates().reset_index(drop=True)
     
     if local_rank == 0:

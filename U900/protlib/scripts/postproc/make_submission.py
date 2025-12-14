@@ -29,7 +29,7 @@ if __name__ == '__main__':
         config = yaml.safe_load(f)
 
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
-    temporal_path = os.path.join(config['base_path'], config['temporal_path'])
+    temporal_path = os.path.join(config['base_path'], config['temporal_path'], "ver228")
     ia_path = os.path.join(config['base_path'], 'IA.txt')
     pp_path = os.path.join(config['base_path'], config['models_path'], 'postproc')
     pp_min = os.path.join(pp_path, f'pred_min.tsv')
@@ -72,19 +72,19 @@ if __name__ == '__main__':
 
     # goa leak
     goa = cudf.read_csv(
-        os.path.join(temporal_path, 'ver228/prop_test_leak_no_dup.tsv'),
+        os.path.join(temporal_path, 'labels/prop_test_leak_no_dup.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     goa['prob'] = 0.99
 
     # gq51 dataset
     qg = cudf.read_csv(
-        os.path.join(temporal_path, 'ver228/prop_quickgo51.tsv'),
+        os.path.join(temporal_path, 'prop_quickgo51.tsv'),
         sep='\t', usecols=['EntryID', 'term'])
     qg['prob'] = 0.99
 
     # diff
     diff = cudf.read_csv(
-        os.path.join(temporal_path, 'ver228/cafa-terms-diff.tsv'),
+        os.path.join(temporal_path, 'cafa-terms-diff.tsv'),
         header=None, sep='\t', names=['EntryID', 'term', 'prob']
     )
 
