@@ -47,6 +47,7 @@ https://drive.google.com/drive/u/0/folders/1cEiFOeUMki87HMmWcs5JGW761xF-bmbJ
 ## 3. Chạy model
 - Chạy [Notebook code.ipynb](code.ipynb) trên môi trường Google Colab, với các embedding tương ứng như trong link google drive.
 - Chạy [Notebook refine](refine.ipynb) ở local, chú ý cài đặt các môi trường.
+- Chạy [Notebook remove negative](goa-negative-propagation.ipynb) ở local, chú ý cài đặt các môi trường.
 
 ## Phụ lục
 - [CAFA 6](https://www.kaggle.com/competitions/cafa-6-protein-function-prediction)
