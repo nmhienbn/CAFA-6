@@ -26,12 +26,6 @@ if __name__ == '__main__':
 
         if not os.path.exists(path):
             print(f"--- Đang tải version {i} bằng aria2c (đa luồng) ---")
-            # Cấu trúc lệnh aria2c:
-            # -x 16: 16 kết nối tối đa
-            # -s 16: chia file thành 16 phần để tải
-            # -k 1M: Min split size
-            # -d: thư mục lưu
-            # -o: tên file
             cmd = [
                 'aria2c', 
                 '-x', '8', 

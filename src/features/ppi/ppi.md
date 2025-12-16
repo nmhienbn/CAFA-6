@@ -151,13 +151,17 @@ python src/features/ppi/build_ppi_features_pecanpy.py \
   --compute_node2vec --node2vec_dim 64
 
 or
-conda install -c rapidsai -c conda-forge -c nvidia python=3.9 rapids=23.10 cuda-version=11.8 -y
+conda create -n rapids_env -c conda-forge python=3.10 cudatoolkit=11.8 -y
+conda activate rapids_env
+python -m pip install cugraph-cu11==23.04.* cudf-cu11==23.04.* --extra-index-url https://pypi.nvidia.com
+python -m pip install gensim pandas scipy
+
 python src/features/ppi/build_ppi_features_gpu.py \
   --ppi_path data/processed/ppi/ppi_edges_cafa.tsv \
   --out_path features/ppi/ppi_features.npz \
   --meta_path features/ppi/ppi_features_meta.json \
   --weight_col weight \
-  --compute_betweenness --betweenness_k 500 \
+  --compute_betweenness --betweenness_k 100 \
   --compute_node2vec --node2vec_dim 64 \
   --compute_pagerank
 ```

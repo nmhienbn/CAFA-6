@@ -32,6 +32,8 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
     
     import torch
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
     from protnn.utils import get_labels, get_goa_data, CAFAEvaluator
     from protnn.dataset import StackDataset, StackDataLoader
@@ -223,7 +225,7 @@ if __name__ == '__main__':
         p_goa=.5,
         targets=target
     )
-    train_dl = StackDataLoader(train_ds, batch_size=32, shuffle=True, num_workers=8)
+    train_dl = StackDataLoader(train_ds, batch_size=96, shuffle=True, num_workers=32, pin_memory=True)
 
     val_ds = StackDataset(
         test_preds,
@@ -235,7 +237,7 @@ if __name__ == '__main__':
         p_goa=1,
         targets=None
     )
-    val_dl = StackDataLoader(val_ds, batch_size=32, shuffle=False, num_workers=8)
+    val_dl = StackDataLoader(val_ds, batch_size=96, shuffle=False, num_workers=32, pin_memory=True)
 
     # define the model
     model = GCNStacker(
@@ -245,6 +247,11 @@ if __name__ == '__main__':
         n_layers=nn_cfg['n_layers'],
         embed_size=nn_cfg['embed_size']
     ).cuda()
+    # try:
+    #     model = torch.compile(model)
+    #     print("A100 Optimization: Model compiled with torch.compile()")
+    # except:
+    #     pass
 
     swa = SWA(nn_cfg['store_swa'], path=swa_dir, rewrite=True)  # 10 best checkpoints are saved
 
@@ -263,4 +270,4 @@ if __name__ == '__main__':
     torch.save(model.state_dict(), os.path.join(work_dir, f'checkpoint.pth'))
     
     score = evaluator(model, val_dl)
-    print('Final CAFA5 score', score)
+    print('Final CAFA 6 score', score)

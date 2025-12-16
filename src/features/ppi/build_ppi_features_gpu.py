@@ -7,17 +7,24 @@ import sys
 import os
 import warnings
 
-# Tắt warning không cần thiết
+# Tắt warning
 warnings.filterwarnings("ignore")
 
-# Kiểm tra import cugraph/cudf
+# Kiểm tra RAPIDS
 try:
     import cudf
     import cugraph
 except ImportError:
     print("❌ LỖI: Không tìm thấy thư viện RAPIDS (cudf, cugraph).")
-    print("Vui lòng cài đặt môi trường GPU: pip install cugraph-cu11 --extra-index-url https://pypi.nvidia.com")
     sys.exit(1)
+
+# Kiểm tra Gensim (Cần cho Node2Vec embedding)
+try:
+    from gensim.models import Word2Vec
+except ImportError:
+    print("⚠️ CẢNH BÁO: Không tìm thấy thư viện 'gensim'.")
+    print("   Cài đặt bằng: pip install gensim")
+    # Chúng ta sẽ xử lý lỗi này trong hàm main nếu người dùng bật node2vec
 
 def main():
     parser = argparse.ArgumentParser(description="Build PPI features using GPU (cuGraph)")
@@ -45,9 +52,10 @@ def main():
     
     start_global = time.time()
     
-    # 1. Load Data vào GPU DataFrame (cuDF)
+    # ---------------------------------------------------------
+    # 1. Load Data
+    # ---------------------------------------------------------
     print(f"Loading PPI from {args.ppi_path} to GPU...")
-    # Đọc tsv bằng cudf
     gdf = cudf.read_csv(args.ppi_path, sep="\t")
     
     # Đổi tên cột chuẩn
@@ -57,19 +65,14 @@ def main():
         args.weight_col: "weight"
     })
     
-    # Tạo Graph
-    # Lưu ý: cugraph cần source/destination là int32/int64 hoặc dùng string nhưng cần renumbring tự động
-    # Các bản mới tự động handle string IDs nhưng tốt nhất cứ để nó tự xử
+    # Tạo Graph (cugraph tự động renumber string sang int nếu cần)
     G = cugraph.Graph()
     G.from_cudf_edgelist(gdf, source='source', destination='destination', edge_attr='weight')
     
-    print(f"Graph loaded on GPU. Nodes: {G.number_of_vertices()}, Edges: {G.number_of_edges()}")
+    print(f"Graph loaded. Nodes: {G.number_of_vertices()}, Edges: {G.number_of_edges()}")
 
-    # Lấy danh sách tất cả các Nodes để làm Master Index
-    # cugraph trả về nodes dưới dạng Series cudf
+    # Master Index
     nodes_series = G.nodes()
-    
-    # Tạo master DataFrame để join các feature
     master_df = cudf.DataFrame({'vertex': nodes_series})
     master_df = master_df.sort_values('vertex').reset_index(drop=True)
     
@@ -79,88 +82,119 @@ def main():
     # 2. Degree Centrality
     # ---------------------------------------------------------
     print("Computing Degree Centrality...")
-    t0 = time.time()
-    # cugraph.degree_centrality trả về [vertex, degree_centrality]
     deg_df = cugraph.degree_centrality(G)
-    
-    # Merge
     master_df = master_df.merge(deg_df, on='vertex', how='left').fillna(0)
     master_df = master_df.rename(columns={'degree_centrality': 'degree'})
     features_meta.append('degree')
-    print(f"Done in {time.time()-t0:.2f}s")
 
     # ---------------------------------------------------------
-    # 3. Betweenness Centrality (Approx)
+    # 3. Betweenness Centrality
     # ---------------------------------------------------------
     if args.compute_betweenness:
         print(f"Computing Betweenness (k={args.betweenness_k})...")
-        t0 = time.time()
         try:
             bet_df = cugraph.betweenness_centrality(G, k=args.betweenness_k)
             master_df = master_df.merge(bet_df, on='vertex', how='left').fillna(0)
             master_df = master_df.rename(columns={'betweenness_centrality': 'betweenness'})
             features_meta.append('betweenness')
-            print(f"Done in {time.time()-t0:.2f}s")
         except Exception as e:
-            print(f"⚠️ Betweenness failed: {e}. Skipping.")
+            print(f"⚠️ Betweenness failed: {e}")
 
     # ---------------------------------------------------------
     # 4. PageRank
     # ---------------------------------------------------------
     if args.compute_pagerank:
         print("Computing PageRank...")
-        t0 = time.time()
         pr_df = cugraph.pagerank(G)
         master_df = master_df.merge(pr_df, on='vertex', how='left').fillna(0)
         master_df = master_df.rename(columns={'pagerank': 'pagerank'})
         features_meta.append('pagerank')
-        print(f"Done in {time.time()-t0:.2f}s")
 
     # ---------------------------------------------------------
-    # 5. Node2Vec
+    # 5. Node2Vec (FIXED)
     # ---------------------------------------------------------
     n2v_vectors = None
     if args.compute_node2vec:
-        print(f"Computing Node2Vec (dim={args.node2vec_dim})...")
+        print(f"Computing Node2Vec (dim={args.node2vec_dim}, walks={args.num_walks})...")
         t0 = time.time()
         
-        try:
-            # SỬA LỖI: Gọi trực tiếp cugraph.node2vec thay vì import submodule
-            # Check xem function nằm ở đâu (thay đổi theo version)
-            if hasattr(cugraph, 'node2vec'):
-                n2v_func = cugraph.node2vec
-            else:
-                # Fallback cho các bản cũ hơn hoặc cấu trúc khác
-                raise ImportError("Function cugraph.node2vec not found")
+        # Kiểm tra Gensim lần nữa
+        if 'Word2Vec' not in sys.modules and 'gensim.models' not in sys.modules:
+             try:
+                 from gensim.models import Word2Vec
+             except ImportError:
+                 print("❌ ERROR: Cần cài đặt 'gensim' để chạy Node2Vec.")
+                 sys.exit(1)
 
-            # Gọi hàm
-            # Kết quả n2v_df sẽ có cột 'vertex' và các cột embedding (0, 1, 2...)
-            n2v_df = n2v_func(
+        try:
+            # BƯỚC 1: Tạo Random Walks trên GPU bằng cugraph
+            # Để có 'num_walks' cho mỗi node, ta phải lặp lại danh sách start_nodes bấy nhiêu lần
+            start_nodes = G.nodes()
+            # Lặp lại series start_nodes (concat)
+            start_nodes_expanded = cudf.concat([start_nodes] * args.num_walks)
+            
+            # Gọi cugraph.node2vec (trả về paths, weights, lengths)
+            # Hàm này trả về dataframe với các cột là các bước đi
+            paths_df, _, _ = cugraph.node2vec(
                 G, 
-                # embedding_dim=args.node2vec_dim, 
-                walk_length=args.walk_length, 
-                num_walks=args.num_walks,
-                p=1.0, q=1.0
+                start_vertices=start_nodes_expanded, 
+                max_depth=args.walk_length,
+                p=1.0, q=1.0 # p, q = 1.0 tương đương DeepWalk/Uniform, chỉnh nếu cần
             )
             
-            # Merge để đảm bảo thứ tự node khớp với master_df
-            # Lưu ý: Node2Vec có thể drop node cô lập, nên cần merge left từ master
-            merged_n2v = master_df[['vertex']].merge(n2v_df, on='vertex', how='left').fillna(0.0)
+            # BƯỚC 2: Chuẩn bị dữ liệu cho Gensim (CPU)
+            # Chuyển paths từ GPU DataFrame sang Pandas -> Numpy -> List of Strings
+            # Gensim Word2Vec yêu cầu list các câu (sentences), mỗi câu là list các từ (words/node_ids) dạng String
             
-            # Sort lại theo vertex để khớp với protein_id list
-            merged_n2v = merged_n2v.sort_values('vertex')
+            # Lấy các cột chứa node id trong path (bỏ cột vertex id gốc hoặc weight nếu có)
+            # paths_df thường chỉ chứa các cột integer đại diện cho vertex ở mỗi bước
             
-            # Lấy các cột embedding (loại bỏ cột vertex)
-            # Tên cột thường là 0, 1, 2 (int) hoặc "0", "1" (str)
-            # Ta lọc các cột không phải là 'vertex'
-            embedding_cols = [c for c in merged_n2v.columns if c != 'vertex']
+            # Chuyển về CPU numpy array
+            paths_np = paths_df.to_pandas().values
             
-            # Chuyển sang numpy array (CPU memory)
-            # to_pandas() chuyển cudf -> pandas, sau đó .values lấy numpy
-            n2v_vectors = merged_n2v[embedding_cols].to_pandas().values
+            # Chuyển sang list of lists of strings
+            # Lưu ý: paths_np là ma trận [num_total_walks, walk_length]
+            walks = []
+            for row in paths_np:
+                # Filter các giá trị padding (nếu graph nhỏ hoặc cụt đường, cugraph có thể fill -1)
+                # Chuyển int -> str
+                walk = [str(int(node_id)) for node_id in row if node_id >= 0]
+                walks.append(walk)
             
-            print(f"Done in {time.time()-t0:.2f}s. Shape: {n2v_vectors.shape}")
+            print(f"  Generated {len(walks)} walks. Training Word2Vec...")
             
+            # BƯỚC 3: Train Word2Vec
+            model = Word2Vec(
+                sentences=walks, 
+                vector_size=args.node2vec_dim, 
+                window=5, 
+                min_count=0, 
+                sg=1, # Skip-gram
+                workers=4,
+                epochs=5
+            )
+            
+            # BƯỚC 4: Trích xuất Vector và Map vào DataFrame
+            # Tạo dictionary {node_id_str: vector}
+            # Cần đảm bảo thứ tự khớp với master_df
+            
+            # Lấy danh sách vertex từ master_df (đang là int hoặc str tùy input gốc)
+            # Chuyển sang chuỗi để lookup trong model gensim
+            target_nodes = master_df['vertex'].to_pandas().astype(str).values
+            
+            vectors = []
+            zeros = np.zeros(args.node2vec_dim)
+            
+            for node_str in target_nodes:
+                if node_str in model.wv:
+                    vectors.append(model.wv[node_str])
+                else:
+                    vectors.append(zeros)
+            
+            n2v_vectors = np.array(vectors) # Shape: (num_nodes, dim)
+            
+            print(f"Done Node2Vec in {time.time()-t0:.2f}s. Shape: {n2v_vectors.shape}")
+
         except Exception as e:
             print(f"⚠️ Node2Vec Error: {e}")
             import traceback
@@ -171,37 +205,29 @@ def main():
     # 6. Save Outputs
     # ---------------------------------------------------------
     print("Exporting data to CPU & Saving...")
-
     os.makedirs(os.path.dirname(args.out_path), exist_ok=True)
     
-    # Chuyển master_df về Pandas (CPU)
     final_df = master_df.to_pandas()
-    
     save_dict = {}
     
-    # Lưu list protein_id (đảm bảo convert sang str nếu cần)
+    # Lưu protein_id (đảm bảo str)
     save_dict['protein_id'] = final_df['vertex'].astype(str).values
     
-    # Lưu các features scalar
     for feat in features_meta:
         if feat == 'protein_id': continue
         if feat in final_df.columns:
             save_dict[feat] = final_df[feat].values
-        
-    # Lưu node2vec embeddings
+            
     if n2v_vectors is not None:
         save_dict['node2vec'] = n2v_vectors
 
-    # Save .npz
     np.savez(args.out_path, **save_dict)
     
-    # Save meta
     meta = {
         "nodes": len(final_df),
         "features": list(save_dict.keys()),
-        "engine": "cugraph (GPU)"
+        "engine": "cugraph (GPU) + gensim (CPU)"
     }
-    os.makedirs(os.path.dirname(args.meta_path), exist_ok=True)
     with open(args.meta_path, 'w') as f:
         json.dump(meta, f)
         

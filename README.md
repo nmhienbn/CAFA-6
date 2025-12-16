@@ -12,7 +12,7 @@ cafa6/
   data/
     raw/
       cafa6/   # from Kaggle 
-      external/  # GOA, STRING, Pfam,...
+      external/  # UniProt, STRING,...
     processed/
       mapping/   # id2protein, id2go, splits
   features/
@@ -22,23 +22,14 @@ cafa6/
     taxon/
     goa/
     ppi/
-    structure/   # Foldseek, AlphaFold index,...
+    structure/   # Foldseek, Blast,...
   src/
     data/
-      dataset.py
-      go_graph.py
-      split.py
+      <!-- Extract models -->
     features/
-      extract_single_model.py
-      embedding.txt
-    models/
-      base.py
-      seq_lr.py          # logistic / linear
-      seq_mlp_bce.py     # NN BCE
-      seq_mlp_softf1.py  # NN soft-F1
-      pyboost_mt.py      # ProtBoost-style
-      gcn_stack.py       # GCN trên GO
-      postprocess.py     # CondProbMod + DAG fix
+      <!-- Extract models -->
+    notebooks/
+      <!-- All my old notebooks -->
     eval/
       cafa_metric.py
       threshold_search.py
@@ -53,3 +44,10 @@ cafa6/
     preds/
     submissions/
 ```
+
+
+
+
+
+
+https://geneontology.org/docs/guide-go-evidence-codes/

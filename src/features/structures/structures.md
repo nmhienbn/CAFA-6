@@ -26,12 +26,17 @@ mkdir -p data/{afdb/{db,prostt5,tmp,out},}
 # 2. Cài FoldSeek (GPU build)
 
 ```text
-cd data
+nvcc --version
+git clone https://github.com/steineggerlab/foldseek.git
+cd foldseek
+# Quan trọng: Tải cả module mmseqs2 đi kèm
+git submodule update --init --recursive
 
-# GPU build (Ampere trở lên)
-wget https://mmseqs.com/foldseek/foldseek-linux-gpu.tar.gz
-tar xvfz foldseek-linux-gpu.tar.gz
-export PATH="$(pwd)/data/structures/foldseek/bin:$PATH"
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=native ..
+make -j$(nproc)
+export PATH=$(pwd)/src:$PATH
 source ~/.bashrc
 
 # Test
@@ -43,20 +48,13 @@ FoldSeek hỗ trợ:
 - Alphafold/UniProt50 – cluster 50% identity, AFDB50 (~54M entries, ~151 GB RAM nếu giữ Cα).
 - Alphafold/Swiss-Prot – 550k entries, nhỏ, curated.
 
-### Tải AFDB50
+### Chạy ESMFold
 ```
-foldseek databases Alphafold/Swiss-Prot \
-  data/afdb/db/afdb_sp \
-  data/afdb/tmp \
-  --threads 32 \
-  --remove-tmp-files 1
+pip install einops omegaconf openfold
+bash src/features/structures/orchestrate_prediction.sh
 
-foldseek databases Alphafold/Proteome \
-  data/afdb/db/afdb_proteome \
-  data/afdb/tmp \
-  --threads 32 \
-  --remove-tmp-files 1
-
+# Xem trực tiếp log của GPU 0 (hoặc GPU bất kỳ)
+tail -f data/processed/pdb/train_structures_pdb/log_gpu_0.txt
 ```
 
 ### Tải ProstT5 weights (để search từ FASTA)

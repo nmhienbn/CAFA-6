@@ -8,11 +8,12 @@ from ..metric import get_funcs_mapper
 
 
 def get_tax(fasta):
+
     tax_list = [
-        9606, 3702, 10090, 7955, 7227, 10116, 559292, 6239,
-        284812, 83333, 83332, 44689, 237561, 39947, 9031, 36329,
-        9913, 227321, 8355, 9823, 224308, 330879, 4577, 170187,
-        9615, 99287, 85962, 243232, 287, 235443, 8364
+        9606, 10090, 3702, 10116, 559292, 284812, 83333, 7227,
+        6239, 9913, 44689, 39947, 7955, 224308, 8355, 83332, 9031,
+        9601, 99287, 208964, 243232, 8364, 237561, 9823, 227321,
+        9541, 9986, 330879, 4577, 284593
     ]
 
     tax = fasta['taxonomyID'].map(
@@ -32,9 +33,6 @@ def get_sergey_embeds(fasta, path, ):
 
     idx = np.load(id_name)
 
-    # print(id_name)
-    # print(idx)
-
     if (len(idx) == len(fasta)) and (np.asarray(idx) == fasta['EntryID'].values).all():
         return embed
 
@@ -46,8 +44,10 @@ def get_sergey_embeds(fasta, path, ):
 
 def get_features_simple(fasta, embeds_list):
     fasta = pd.read_feather(fasta)
-    tax = get_tax(fasta)
-    embeds = np.concatenate([get_sergey_embeds(fasta, x) for x in embeds_list] + [tax], axis=1)
+
+    embeds = np.concatenate(
+        [get_sergey_embeds(fasta, x) for x in embeds_list], axis=1
+    )
 
     return embeds, fasta['EntryID'].values
 
@@ -74,7 +74,7 @@ def get_targets_from_parquet(path, ontologies, split, ids=None, names=None, fill
         flist = sorted(glob.glob(os.path.join(path, G.namespace, 'part*')))
         trg = pd.concat([
             pd.read_parquet(x, columns=names_) for x in flist
-        ], ignore_index=True)  # pd.read_parquet(flist, columns=names_)
+        ], ignore_index=True)
 
         if fillna:
             print('trg filled')

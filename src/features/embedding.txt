@@ -46,7 +46,6 @@ CUDA_VISIBLE_DEVICES=3 python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_ankh &
 
 
@@ -59,7 +58,6 @@ CUDA_VISIBLE_DEVICES=4 python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_prott5 &
 
 
@@ -108,7 +106,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_ankh ;
 
 python extract_single_model.py \
@@ -118,7 +115,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_protbert ;
 
 python extract_single_model.py \
@@ -128,7 +124,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_protbert
 ' &
 
@@ -143,7 +138,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --is_prott5 ;
 
 python extract_single_model.py \
@@ -153,7 +147,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --max_len 1022 ;
 
 python extract_single_model.py \
@@ -163,7 +156,6 @@ python extract_single_model.py \
   --save_dir content/CAFA6_Embeddings \
   --device cuda:0 \
   --batch_size 32 \
-  --use_fp16 \
   --max_len 1022
 ' &
 
@@ -180,9 +172,8 @@ CUDA_VISIBLE_DEVICES=5 python src/features/extract_single_model.py \
   --fasta_path data/raw/cafa6/Train/train_sequences.fasta \
   --save_dir features \
   --device cuda:0 \
-  --batch_size 32 \
-  --use_fp16 \
-  --is_ankh
+  --batch_size 128 \
+  --is_ankh &
 
 
 CUDA_VISIBLE_DEVICES=3 python src/features/extract_single_model.py \
@@ -191,7 +182,6 @@ CUDA_VISIBLE_DEVICES=3 python src/features/extract_single_model.py \
   --fasta_path data/raw/cafa6/Test/testsuperset.fasta \
   --save_dir features \
   --device cuda:0 \
-  --batch_size 32 \
-  --use_fp16 \
+  --batch_size 128 \
   --is_ankh
 

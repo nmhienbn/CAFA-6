@@ -1,10 +1,5 @@
-**/testsuperset_emb.npy
-**/train_sequences_emb.npy
-features/taxonomy_highlevel/*.npy
-features/taxonomy_highlevel/*.tsv
-features/taxonomy/*.npy
-features/taxonomy/*.tsv
-features/aligned
+**/*.npy
+**/*.tsv
 .ipynb_checkpoints/
 data/
 output/

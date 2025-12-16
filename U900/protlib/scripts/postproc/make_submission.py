@@ -31,9 +31,12 @@ if __name__ == '__main__':
     graph_path = os.path.join(config['base_path'], 'Train/go-basic.obo')
     temporal_path = os.path.join(config['base_path'], config['temporal_path'], "ver228")
     ia_path = os.path.join(config['base_path'], 'IA.txt')
-    pp_path = os.path.join(config['base_path'], config['models_path'], 'postproc')
-    pp_min = os.path.join(pp_path, f'pred_min.tsv')
-    pp_max = os.path.join(pp_path, f'pred_max.tsv')
+    # pp_path = os.path.join(config['base_path'], config['models_path'], 'postproc')
+    # pp_min = os.path.join(pp_path, f'pred_min.tsv')
+    # pp_max = os.path.join(pp_path, f'pred_max.tsv')
+    pp_path = os.path.join(config['base_path'], 'sub')
+    pp_min = os.path.join(pp_path, f'submission-300.tsv')
+    pp_max = os.path.join(pp_path, f'submission-304+308.tsv')
     sub_path = os.path.join(config['base_path'], 'sub')
     os.makedirs(sub_path, exist_ok=True)
 
@@ -58,7 +61,7 @@ if __name__ == '__main__':
         )
 
         score = metric.from_df(label_path, os.path.join(sub_path, 'submission.tsv'))
-        print('CAFA5 Scores')
+        print('CAFA 6 Scores')
         print(score)
 
     # make submission part
@@ -91,9 +94,9 @@ if __name__ == '__main__':
     # collect all together
     pred = cudf.concat([
         pred, 
-        # qg, 
+        qg, 
         goa, 
-        # diff
+        diff
         ], ignore_index=False)
     pred['ns'] = pred['term'].map(mapper).values
     pred = pred.groupby(['EntryID', 'term']).mean().reset_index()

@@ -5,6 +5,7 @@ python src/data/build_dataset.py \
   --min_term_freq 5
 
 rclone copy -P . gdrive:cafa/ --update
+rclone copy -P ./features gdrive:cafa/features --update
 
 powershell -ExecutionPolicy Bypass -File .\setup_cafa6.ps1
 

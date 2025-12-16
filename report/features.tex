@@ -1,0 +1,128 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc} % Font encoding cho tiếng Việt
+\usepackage[vietnamese]{babel} % Hỗ trợ tiếng Việt
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Thiết lập lề trang
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+
+% Thiết lập màu cho liên kết
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\title{\textbf{BÁO CÁO TỔNG HỢP ĐẶC TRƯNG (FEATURE ENGINEERING)\\DỰ ÁN CAFA 6}}
+\author{Đội ngũ Kỹ thuật}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{Tổng quan}
+Dựa trên các tệp mã nguồn và tài liệu hệ thống, báo cáo này trình bày chi tiết về các loại đặc trưng (features) đã được xây dựng và sử dụng trong dự án. Các đặc trưng này được chia thành 4 nhóm chính: Sequence Embeddings, Taxonomy, PPI, và Structure.
+
+\section{Sequence Embeddings}
+Đây là nguồn đặc trưng quan trọng nhất, tận dụng sức mạnh của các mô hình Ngôn ngữ Protein (Protein Language Models - pLMs) tiên tiến để trích xuất vector đại diện (representation vector) cho mỗi protein từ chuỗi axit amin.
+
+\subsection{Các mô hình được sử dụng}
+Mô hình của chúng em đã thử nghiệm trên một tập hợp (ensemble) các mô hình ngôn ngữ lớn để đánh giá hiệu quả của các mô hình và kết hợp chúng:
+\begin{itemize}
+    \item \textbf{ESM2 - Facebook:} Bao gồm:
+    \begin{itemize}
+        \item \texttt{esm2\_t48\_15B\_UR50D} (15 tỷ tham số).
+        \item \texttt{esm2\_t36\_3B\_UR50D} (3 tỷ tham số).
+        \item \texttt{esm2\_t33\_650M\_UR50D} (650 triệu tham số).
+    \end{itemize}
+    \item \textbf{ESM1b - Facebook:} \texttt{esm1b\_t33\_650M\_UR50S}.
+    \item \textbf{Ankh - ElnaggarLab:} \texttt{ankh-large} và \texttt{ankh3-large} (của ).
+    \item \textbf{ProtT5 - Rostlab:} \texttt{prot\_t5\_xl\_uniref50} (T5 Encoder).
+    \item \textbf{ProtBERT - Rostlab:} \texttt{prot\_bert\_bfd}.
+\end{itemize}
+
+Tuy nhiên qua thử nghiệm thực tế, mô hình ESM2-650M hoặc ESM2-3B kết hợp với ProtT5-XL đã mang lại hiệu quả tốt nhất với chi phí tính toán hợp lý.
+
+\subsection{Phương pháp trích xuất (Method)}
+\begin{itemize}
+    \item \textbf{Script thực thi:} \texttt{src/features/extract\_single\_model.py}.
+    \item \textbf{Kỹ thuật Pooling:} Sử dụng \textbf{Mean Pooling}. Đối với hầu hết các mô hình (ESM, ProtBERT), đặc trưng đầu ra là trung bình cộng của các vector ẩn tại lớp cuối cùng (last hidden state) dọc theo chiều dài chuỗi protein (đã loại bỏ padding).
+    \item \textbf{Tối ưu hóa:} Sử dụng độ chính xác \textbf{FP16} (half precision) để tiết kiệm bộ nhớ GPU và tăng tốc độ suy luận, đặc biệt quan trọng với các mô hình lớn như ESM2-15B.
+\end{itemize}
+
+\section{Taxonomy Features}
+Thông tin về loài (species) của protein được sử dụng để bổ sung ngữ cảnh sinh học, giúp mô hình phân biệt chức năng giữa các nhóm sinh vật khác nhau.
+
+\subsection{Đặc trưng loài cơ bản (Species ID)}
+\begin{itemize}
+    \item \textbf{Nguồn:} Tệp \texttt{train\_taxonomy.tsv} của tập train và header của file FASTA của tập test.
+    \item \textbf{Xử lý:}
+    \begin{itemize}
+        \item Mỗi \texttt{taxon\_id} (NCBI TaxID) được gán một chỉ số (index) cố định.
+        \item Các loài hiếm (tần suất thấp hơn ngưỡng \texttt{min\_count}) được gộp chung vào nhóm \textit{rare/unknown}.
+        \item Ngoài ra, có thể chỉ sử dụng top 30 - 50 loài phổ biến nhất để giảm số chiều đặc trưng.
+    \end{itemize}
+    \item \textbf{Đầu ra:} Vector One-hot hoặc Label Encoding của Taxon ID.
+\end{itemize}
+
+\subsection{Đặc trưng phân cấp (Hierarchical Lineage)}
+\begin{itemize}
+    \item Sử dụng công cụ \texttt{taxonkit} và dữ liệu NCBI taxdump để truy xuất phả hệ đầy đủ gồm 7 cấp: \textit{Superkingdom, Phylum, Class, Order, Family, Genus, Species}.
+    \item Script \texttt{src/features/taxonomy2\_embedding.py} xây dựng bộ từ điển (vocab) riêng cho các cấp \textbf{Genus}, \textbf{Family}, và \textbf{Order}.
+    \item \textbf{Đầu ra:} Vector One-hot cho từng cấp bậc này, giúp mô hình học được mối quan hệ giữa các loài gần gũi về mặt tiến hóa.
+\end{itemize}
+
+\section{Protein-Protein Interaction (PPI) Features}
+Sử dụng thông tin từ cơ sở dữ liệu STRING v12 để xây dựng đồ thị tương tác protein và trích xuất đặc trưng mạng lưới.
+
+\subsection{Nguồn dữ liệu}
+\begin{itemize}
+    \item Tải từ \textbf{STRING DB} (\texttt{protein.links.full.v12.0}) cho các loài có trong CAFA6.
+    \item Map STRING ID sang CAFA Protein ID thông qua file alias (UniProt AC).
+\end{itemize}
+
+\subsection{Các đặc trưng đồ thị (Graph Features)}
+Được tính toán bằng thư viện NetworkX, Node2Vec hoặc cuGraph:
+\begin{itemize}
+    \item \textbf{Degree Centrality:} Mức độ kết nối của protein (số lượng cạnh nối).
+    \item \textbf{Betweenness Centrality:} Tầm quan trọng của protein trong việc kết nối các cụm (xấp xỉ với $k$ nodes để tăng tốc).
+    \item \textbf{Closeness Centrality:} Độ gần gũi trung bình đến các node khác.
+    \item \textbf{PageRank:} (GPU version) Đo lường tầm ảnh hưởng của protein trong mạng lưới.
+    \item \textbf{Node2Vec Embeddings:} Học biểu diễn vector của protein dựa trên cấu trúc đồ thị thông qua các bước đi ngẫu nhiên (random walks).
+\end{itemize}
+
+\section{Structure Features}
+
+\subsection{Thông tin về cấu trúc 3D}
+
+Theo một số nghiên cứu thì cấu trúc protein 3D có thể cung cấp thông tin quan trọng về chức năng của protein, đặc biệt là các amino acid ở vị trí hoạt động (active sites). 
+AlphaFold 3 của Google DeepMind đạt giải Nobel năm 2024 đã giúp suy luận ra cấu trúc 3D này. Tuy nhiên chi phí tính toán, dù chỉ là infer trên bản public AlphaFold 2 là rất lớn, nên nhiều người sử dụng \textbf{FoldSeek} để tìm kiếm cấu trúc tương đồng trong cơ sở dữ liệu AlphaFold Database (AFDB).
+Tuy nhiên chúng em rất tiếc vì chưa thể thử nghiệm feature này trong thời gian dự án do việc truy vấn Database này rất chậm và hạy bị hạn chế truy cập.
+
+\subsection{BLAST}
+BLAST là một công cụ tìm kiếm trình tự phổ biến trong lĩnh vực tin sinh học truyền thống để xác định các trình tự tương đồng. Mặc dù BLAST chủ yếu dựa trên trình tự, nhưng nó có thể cung cấp thông tin gián tiếp về cấu trúc thông qua các trình tự tương đồng đã biết.
+Về mặt lý thuyết, công cụ này có thể sắp hàng các trình tự protein dựa trên sự tương đồng cấu trúc, từ đó đưa ra điểm đánh giá dựa trên các ma trận điểm như BLOSUM hoặc PAM. Tuy nhiên, trong dự án này, chúng em đã thử nghiệm và cho kết quả không như mong đợi.
+
+\section{UniProtKB Features}
+UniProtKB cung cấp một kho dữ liệu phong phú về protein, bao gồm các annotation về chức năng, cấu trúc, và các đặc tính sinh học khác. Các đặc trưng từ UniProtKB có thể bao gồm:
+\begin{itemize}
+    \item \textbf{Functional Annotations:} Các chú thích về chức năng protein, như GO terms, enzyme classifications, và các mô tả chức năng khác.
+    \item \textbf{Sequence Features:} Các đặc trưng liên quan đến trình tự như vị trí miền (domains), motif, và các đặc điểm cấu trúc khác.
+    \item \textbf{Physicochemical Properties:} Các tính chất vật lý và hóa học của protein như trọng lượng phân tử, điểm đẳng điện (isoelectric point), và các tính chất khác.
+\end{itemize}
+
+Trong dự án này, chúng em đã thử sử dụng các đặc trưng từ UniProtKB nhưng đạt được kết quả khá tốt
+
+\section{Kết quả thử nghiệm}
+\subsection{Mô hình tốt nhất hiện tại}
+
+
+
