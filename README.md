@@ -49,6 +49,9 @@ https://drive.google.com/drive/u/0/folders/1cEiFOeUMki87HMmWcs5JGW761xF-bmbJ
 - Chạy [Notebook refine](refine.ipynb) ở local, chú ý cài đặt các môi trường.
 - Chạy [Notebook remove negative](goa-negative-propagation.ipynb) ở local, chú ý cài đặt các môi trường.
 
+## 4. Kết quả
+- [Báo cáo PDF](report/CAFA6_ML.pdf)
+
 ## Phụ lục
 - [CAFA 6](https://www.kaggle.com/competitions/cafa-6-protein-function-prediction)
 - [CAFA 5](https://www.kaggle.com/competitions/cafa-5-protein-function-prediction)
