@@ -56,7 +56,7 @@ Note chia sẻ: Nếu muốn chạy FoldSeek trên các phiên bản cuda cũ, v
 ## 3. Chạy model
 - Chạy [Notebook code.ipynb](code.ipynb) trên môi trường Google Colab, với các embedding tương ứng như trong link google drive.
 - Chạy [Notebook refine](refine.ipynb) ở local, chú ý cài đặt các môi trường.
-- Chạy [Notebook remove negative](goa-negative-propagation.ipynb) ở local, chú ý cài đặt các môi trường.
+- Chạy [Notebook remove negative](goa-negative-propagation.ipynb) ở local, chú ý cài đặt các môi trường - Nó là file goa từ version 227 từ UniProt. Nếu cần lặp lại kết quả thì lấy file gaf từ [Notebook refine](refine.ipynb) và lọc thông tin cần thiết.
 
 ## 4. Kết quả
 - [Báo cáo PDF](report/CAFA6_ML.pdf)
