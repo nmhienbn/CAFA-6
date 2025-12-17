@@ -28,21 +28,30 @@ CAFA-6
 ## 2. Hướng dẫn chạy Embedding pLM
 Đây là phần feature quan trọng nhất trong dự án.
 
-Chạy để chạy song song.
-
-```bash
-bash src/features/embedding.sh
-```
-
 Yêu cầu máy chạy:
 ```
 - GPU: 8 x A100 80GB
 - CPU: AMD 2TB, 256 cores
 - Disk Storage: 2TB (At least 300GB for this project)
 ```
+
+Yêu cầu môi trường
+```
+conda create -n lastdance python=3.9 -y
+conda activate lastdance
+conda install -c conda-forge taxonkit -y
+pip install -r requirements.txt
+```
+
+Chạy để chạy song song.
+
+```bash
+bash src/features/embedding.sh
+```
 Kết quả chạy: 
 https://drive.google.com/drive/u/0/folders/1cEiFOeUMki87HMmWcs5JGW761xF-bmbJ
 
+Note chia sẻ: Nếu muốn chạy FoldSeek trên các phiên bản cuda cũ, ví dụ như CUDA 11.7, sử dụng clone project [https://github.com/steineggerlab/foldseek](https://github.com/steineggerlab/foldseek). Cài cudatoolkit=11.7 và nvcc trong channel nvidia của conda. Thêm flag ` -DCMAKE_CUDA_ARCHITECTURES=native` khi chạy cmake
 
 ## 3. Chạy model
 - Chạy [Notebook code.ipynb](code.ipynb) trên môi trường Google Colab, với các embedding tương ứng như trong link google drive.

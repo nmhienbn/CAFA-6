@@ -1,3 +1,23 @@
-taxonkit (conda)
-conda install -c conda-forge biopython numpy -y
+
+numpy
+pandas
+scipy
+scikit-learn
+tqdm
+PyYAML
+joblib
+
+
+biopython
 iterative-stratification
+obonet
+networkx
+
+--extra-index-url https://download.pytorch.org/whl/cu117
+torch==2.0.1+cu117
+torchvision==0.15.2+cu117
+torchaudio==2.0.2+cu117
+
+transformers
+sentencepiece
+fair-esm
